@@ -1,4 +1,4 @@
-Country,Year,Population,Gini Index,Average Income (USD),Top 10% Income Share (%),Bottom 10% Income Share (%),Income Group
+Country,Year,Population,Gini Index,Income,Top 10% Income Share (%),Bottom 10% Income Share (%),Income Group
 United States,2000,30072337,0.3331052401870229,37106.73553599196,30.780945649918372,1.0963288689603452,High Income
 United States,2001,15189465,0.5087613469157066,16250.105074686931,54.56347518773506,1.441727850579345,Low Income
 United States,2002,89001835,0.22909315670856753,40069.586398757485,37.20066628313698,1.374502232375996,High Income
