@@ -3,100 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>D3 Bar Graph</title>
-    <!-- Import D3.js -->
+    <title>Average Bike Price Over Time</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
-        /* Basic styling for the bar chart */
-        .bar {
-            fill: steelblue;
+        body {
+            font-family: Arial, sans-serif;
         }
-
-        .bar:hover {
-            fill: orange;
+        .line {
+            fill: none;
+            stroke: steelblue;
+            stroke-width: 2px;
         }
-
         .axis-label {
-            font-size: 14px;
-            font-family: sans-serif;
+            font-size: 12px;
         }
     </style>
 </head>
 <body>
-    <!-- Placeholder for the graph -->
-    <h1>Global Income Inequality</h1>
-    <svg width="800" height="500"></svg>
+    <h1>Average Bike Price Over Time</h1>
+    <div id="chart"></div>
 
     <script>
-        // Set the dimensions of the SVG
-        const width = 800;
-        const height = 500;
-        const margin = { top: 20, right: 30, bottom: 40, left: 40 };
+        // Set up dimensions and margins for the graph
+        const margin = {top: 20, right: 30, bottom: 50, left: 60},
+              width = 1290 - margin.left - margin.right,
+              height = 500 - margin.top - margin.bottom;
 
-        // Create an SVG canvas
-        const svg = d3.select("svg")
-            .attr("width", width)
-            .attr("height", height)
-            .append("g")
-            .attr("transform", `translate(${margin.left},${margin.top})`);
+        // Create an SVG container
+        const svg = d3.select("#chart")
+                      .append("svg")
+                      .attr("width", width + margin.left + margin.right)
+                      .attr("height", height + margin.top + margin.bottom)
+                      .append("g")
+                      .attr("transform", `translate(${margin.left},${margin.top})`);
 
-        const graphWidth = width - margin.left - margin.right;
-        const graphHeight = height - margin.top - margin.bottom;
+        // Parse the date / time format for DD-MM-YYYY
+        const parseDate = d3.timeParse("%d-%m-%Y");
 
-        // Load CSV dataset
-        d3.csv("data/global_income_inequality.csv").then(data => {
-            // Assuming the CSV has columns "Country" and "Income" for this example
+        // Format the date back to DD-MM-YYYY for display on axis
+        const formatDate = d3.timeFormat("%d-%m-%Y");
+
+        // Set up x and y scales
+        const x = d3.scaleTime().range([0, width]);
+        const y = d3.scaleLinear().range([height, 0]);
+
+        // Define the line generator function
+        const line = d3.line()
+                       .x(d => x(d.Date))
+                       .y(d => y(d.Avg_Price));
+
+        // Load the CSV data
+        d3.csv("data/bike_sales_100k.csv").then(data => {
+            // Parse the data
             data.forEach(d => {
-                d.Income = +d.Income; // Convert income to a number
+                d.Date = parseDate(d.Date); // Parse DD-MM-YYYY format
+                d.Price = +d.Price; // Convert Price to number
             });
 
-            // Define the scales
-            const x = d3.scaleBand()
-                .domain(data.map(d => d.Country))
-                .range([0, graphWidth])
-                .padding(0.2); // Add some padding between bars
+            // Group data by Date and calculate the average Price
+            const averagePriceByDate = d3.rollup(
+                data,
+                v => d3.mean(v, d => d.Price), // Compute average Price
+                d => d.Date // Group by Date
+            );
 
-            const y = d3.scaleLinear()
-                .domain([0, d3.max(data, d => d.Income)])
-                .range([graphHeight, 0]);
+            // Convert the Map back into an array of objects for easier plotting
+            const processedData = Array.from(averagePriceByDate, ([Date, Avg_Price]) => ({ Date, Avg_Price }));
 
-            // Add X axis
+            // Sort the data by Date
+            processedData.sort((a, b) => d3.ascending(a.Date, b.Date));
+
+            // Set the domains of the x and y scales based on the processed data
+            x.domain(d3.extent(processedData, d => d.Date));
+            y.domain([0, d3.max(processedData, d => d.Avg_Price)]);
+
+            // Add the X axis
             svg.append("g")
-                .attr("transform", `translate(0, ${graphHeight})`)
-                .call(d3.axisBottom(x))
-                .selectAll("text")
-                .attr("transform", "rotate(-45)")
-                .style("text-anchor", "end");
+               .attr("transform", `translate(0,${height})`)
+               .call(d3.axisBottom(x).tickFormat(formatDate)) // Format the x-axis labels
+               .append("text")
+               .attr("class", "axis-label")
+               .attr("x", width / 2)
+               .attr("y", 40)
+               .style("text-anchor", "middle")
+               .text("Date");
 
-            // Add Y axis
+            // Add the Y axis
             svg.append("g")
-                .call(d3.axisLeft(y));
+               .call(d3.axisLeft(y))
+               .append("text")
+               .attr("class", "axis-label")
+               .attr("transform", "rotate(-90)")
+               .attr("x", -height / 2)
+               .attr("y", -40)
+               .style("text-anchor", "middle")
+               .text("Average Price");
 
-            // Add bars
-            svg.selectAll(".bar")
-                .data(data)
-                .enter()
-                .append("rect")
-                .attr("class", "bar")
-                .attr("x", d => x(d.Country))
-                .attr("y", d => y(d.Income))
-                .attr("width", x.bandwidth())
-                .attr("height", d => graphHeight - y(d.Income));
+            // Add the line path to the SVG with animation
+            const path = svg.append("path")
+               .datum(processedData)
+               .attr("class", "line")
+               .attr("d", line);
 
-            // Add labels to the axis
-            svg.append("text")
-                .attr("class", "axis-label")
-                .attr("text-anchor", "middle")
-                .attr("transform", `translate(${-margin.left / 2}, ${graphHeight / 2})rotate(-90)`)
-                .text("Income");
+            // Get the total length of the path
+            const totalLength = path.node().getTotalLength();
 
-            svg.append("text")
-                .attr("class", "axis-label")
-                .attr("text-anchor", "middle")
-                .attr("transform", `translate(${graphWidth / 2}, ${graphHeight + margin.bottom})`)
-                .text("Country");
+            // Animate the line drawing over 5 seconds
+            path.attr("stroke-dasharray", `${totalLength} ${totalLength}`)
+                .attr("stroke-dashoffset", totalLength)
+                .transition()
+                .duration(10000) // 5 seconds duration
+                .ease(d3.easeLinear)
+                .attr("stroke-dashoffset", 0);
+
         }).catch(error => {
-            console.error("Error loading the CSV file:", error);
+            console.error('Error loading or processing CSV file:', error);
         });
     </script>
 </body>
